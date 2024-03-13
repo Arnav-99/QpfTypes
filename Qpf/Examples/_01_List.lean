@@ -5,7 +5,7 @@ open MvQPF
   Let us start with a simple example of an inductive type: lists
   ```lean4
   inductive QpfList (α : Type u)
-   | nil : QpfList α 
+   | nil : QpfList α
    | cons : α →  QpfList α → QpfList α
   ```
 
@@ -24,27 +24,27 @@ open MvQPF
   Of course, we won't actually define the type as such, instead, recall that polynomial functors are
   encoded by a "head" type, which may not depend on `α`, and a "child" type, that does depend on `α`.
 
--/ 
+-/
 namespace QpfList
-  /- 
-    The aforementioned "head" type is a simple enumeration of all constructors  
+  /-
+    The aforementioned "head" type is a simple enumeration of all constructors
   -/
   inductive HeadT
     | nil
     | cons
 
-  /- 
+  /-
     The "child" type tells us for each constructor (i.e., element of `HeadT`) and each type argument,
     how many instances of that type we need, through the cardinality of `ChildT a i`.
 
-    In this case, the `nil` constructor takes no argument, while `cons` takes one instance of both 
+    In this case, the `nil` constructor takes no argument, while `cons` takes one instance of both
     arguments, hence we use the empty and unit types, respectively.
   -/
   abbrev ChildT : HeadT → TypeVec 2
     | HeadT.nil , _ => Empty
     | HeadT.cons, _ => Unit
 
-  /- 
+  /-
     We define the polynomial functor
   -/
   abbrev P := MvPFunctor.mk HeadT ChildT
@@ -56,7 +56,7 @@ namespace QpfList
     Of course, each polynomial functor is a (multivariate) quotient of a polynomial functor, and
     this is automatically inferred
   -/
-  example : MvQPF F := 
+  example : MvQPF F :=
     by infer_instance
 
 
@@ -72,8 +72,8 @@ namespace QpfList
   abbrev QpfList
     := QpfList'.curried
 
-  
-  example : MvQPF QpfList' := 
+
+  example : MvQPF QpfList' :=
     by infer_instance
 
 
@@ -81,11 +81,11 @@ namespace QpfList
   # Constructors
   We manually define the constructors in terms of `Fix.mk`
 -/
-  
+
   def nil {α : Type} : QpfList α :=
     Fix.mk ⟨HeadT.nil, fun _ emp => by contradiction⟩
 
-  
+
   def cons {α} (hd : α) (tl : QpfList α) : QpfList α :=
     Fix.mk ⟨HeadT.cons, fun i _ => match i with
                           | 0 => tl
@@ -105,20 +105,22 @@ namespace QpfList
     | cons hd tl => cons (2*hd) (mul2 tl)
   -/
 
+  #check Fix.dest
 
-  -- def rec {α} 
-  --         {motive : QpfList α → Sort _} 
-  --         : (motive nil) 
+
+  -- def rec {α}
+  --         {motive : QpfList α → Sort _}
+  --         : (motive nil)
   --         → ((hd : α) → (tl : QpfList α) → motive (cons hd tl))
-  --         → (t : QpfList α) 
-  --         → motive t := 
+  --         → (t : QpfList α)
+  --         → motive t :=
   -- fun base_case rec_case t => by
   --   let t' := Fix.dest t;
   --   simp [MvPFunctor.Obj] at t'
   --   rcases t' with ⟨a, f⟩
   --   cases a <;> simp [MvPFunctor.B] at f
-    
-    
+
+
     -- let g := fun ⟨a, f⟩ => match a with
     --   | HeadT.nil  => cast (
     --                     by  delta nil;
@@ -126,7 +128,7 @@ namespace QpfList
     --                         simp [MvFunctor.map];
     --                         conv in (fun x emp => _) => {
     --                           tactic => funext x y; contradiction;
-    --                         }                             
+    --                         }
     --                   ) base_case
     --   | HeadT.cons => by simp [MvPFunctor.B, HeadT, ChildT] at f
     --                      skip
@@ -136,7 +138,7 @@ namespace QpfList
                       -- ) (rec_case (f (Fin2.fz) (by simp [P.B])) _)
     -- Fix.drec (β := motive) g t
 
-  
+
 end QpfList
 
 export QpfList (QpfList QpfList')

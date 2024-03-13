@@ -54,7 +54,7 @@ namespace DVec
     | .fz   => hd
 
 
-  -- infixl:67 " ::: " => append1
+-- infixl:67 " ::: " => append1
 end DVec
 
 namespace Vec

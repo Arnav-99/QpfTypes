@@ -318,10 +318,6 @@ namespace QpfTree
 
   #check PFin2
   #check Vec
-  #check Matrix.vecCons
-
-  -- abbrev long_type (β : Type) := TypeVec.Arrow (Shape.ChildT Shape.HeadT.node) fun i =>
-  -- G i ((Vec.reverse (Vec.append1 Vec.nil β)) ::: (Fix Base (Vec.reverse (Vec.append1 Vec.nil β))))
 
   theorem curried_uncurried_equal (β : Type)
   -- (f : TypeVec.Arrow (Shape.ChildT Shape.HeadT.node) fun i =>
@@ -363,11 +359,21 @@ namespace QpfTree
         lhs
         rw [TypeFun.curriedAux]
         simp
-  }
 
-  theorem type_equality_2 (β : Type) :
-  (fun (i : Fin2 1) => Matrix.vecCons β ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))) = fun (i : Fin2 1) => β := by {
-    sorry
+    -- apply congrArg
+    -- let test1 : ∀ i : Fin2 1, (Vec.append1 Vec.nil (QpfTree β)) i = (fun i => QpfTree β) i := by {
+    --   intro i
+    --   conv =>
+    --     rhs
+    --     simp
+    --   conv =>
+    --     lhs
+    --     simp [Vec.append1]
+    --   split
+    --   contradiction
+    --   trivial
+    -- }
+    -- exact (funext test1)
   }
 
   def rec {β}
@@ -402,22 +408,31 @@ namespace QpfTree
     trivial
 
     -- extremely weird, this was not an issue before!
-    -- let type_equality_2 :
-    let ⟨a, f_right⟩ := Fix.dest t
-    suffices fix_expansion_equality : Fix.mk ⟨Shape.HeadT.node, f_right⟩ = t
-    rw [←fix_expansion_equality]
 
-    conv =>
-      lhs
-      rw [← Fix.mk_dest (node elem children)]
-    apply congrArg
+    -- let type_equality2 : Matrix.vecCons β ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i))) = β := by sorry
+    suffices fix_expansion_equality : Fix.mk ⟨Shape.HeadT.node, f⟩ = t
+
     let ⟨Shape.HeadT.node, f_left⟩ := Fix.dest (node elem children)
-    apply congrArg
+    -- si
+    -- apply congrArg
+    -- apply congrArg
 
-    let almost_done_equality : f_left = f_right := by sorry
-    trivial
-    sorry
-
+    -- let t' : ∀ v : TypeVec 2, (G 0) v = QpfList' !![v 0] := by {
+    --   intro v;
+    --   let t1 : G 0 = Comp QpfList' !![@Prj 2 0] := by trivial;
+    --   rw [t1];
+    --   simp [Comp];
+    --   apply congrArg;
+    --   sorry;
+    -- };
+    -- rw [t'] at children';
+    -- suffices children_converted : QpfList (QpfTree β);
+    -- let ind_res := given_hyp (f 1 .fz) (children_converted);
+    -- suffices h : node (f 1 .fz) (children_converted) = t;
+    -- rw [h] at ind_res;
+    -- trivial;
+    -- sorry;
+    -- sorry;
   }
 
 end QpfTree
