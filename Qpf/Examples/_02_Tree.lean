@@ -3,7 +3,6 @@ import Qpf.Examples._01_List
 import Qpf.Macro.Tactic.FinDestr
 import Qpf.MathlibPort.Fin2
 -- import Qpf.Qpf.Multivariate.Constructions.Comp
-
 open MvQPF
 
 /-
@@ -75,6 +74,7 @@ namespace QpfTree
 
   #check Fin2
   #check Fix.mk
+  #check TypeFun
 
   abbrev G' (j : Fin2 1) : TypeVec 2 → Type := Prj 0
 
@@ -82,6 +82,7 @@ namespace QpfTree
     match i with
     | 0 => Comp QpfList' G'
     | 1 => Prj 1
+
 
 
   /-
@@ -290,39 +291,6 @@ namespace QpfTree
 
   -- end debug
 
-  def node (a : α) (children : QpfList (QpfTree α)) : QpfTree α :=
-    Fix.mk ⟨Shape.HeadT.node,
-            fun i _ => match i with
-            | 0 => by
-                    apply cast ?_ children;
-                    unfold QpfList;
-                    dsimp only [TypeFun.curried, TypeFun.curriedAux, TypeFun.reverseArgs];
-                    apply congrArg;
-                    vec_eq;
-            | .fs .fz => a
-    ⟩
-
-  /-
-    Even though there are some `sorry`s left in the formalization codebase, all of the machinery
-    for inductive types is fully proven, and indeed, we can construct `QpfTree` without depending
-    on `sorryAx`
-  -/
-  #print axioms node
-
-  #check TypeVec.Arrow
-
-  #check TypeFun
-
-  #check Comp
-  #check Vec.reverse_involution
-
-  #check PFin2
-  #check Vec
-  #check Matrix.vecCons
-
-  -- abbrev long_type (β : Type) := TypeVec.Arrow (Shape.ChildT Shape.HeadT.node) fun i =>
-  -- G i ((Vec.reverse (Vec.append1 Vec.nil β)) ::: (Fix Base (Vec.reverse (Vec.append1 Vec.nil β))))
-
   theorem curried_uncurried_equal (β : Type)
   -- (f : TypeVec.Arrow (Shape.ChildT Shape.HeadT.node) fun i =>
   -- G i ((Vec.reverse (Vec.append1 Vec.nil β)) ::: (Fix Base (Vec.reverse (Vec.append1 Vec.nil β)))))
@@ -365,6 +333,46 @@ namespace QpfTree
         simp
   }
 
+  def node (a : α) (children : QpfList (QpfTree α)) : QpfTree α :=
+    Fix.mk ⟨Shape.HeadT.node,
+            fun i _ => match i with
+            | 0 => by
+                    rw [← (curried_uncurried_equal α)] at children
+                    trivial
+                    -- proven equality already satisifies
+                    -- apply cast ?_ children;
+                    -- unfold QpfList;
+                    -- dsimp only [TypeFun.curried, TypeFun.curriedAux, TypeFun.reverseArgs];
+                    -- apply congrArg;
+                    -- vec_eq;
+            | .fs .fz => a
+    ⟩
+
+  /-
+    Even though there are some `sorry`s left in the formalization codebase, all of the machinery
+    for inductive types is fully proven, and indeed, we can construct `QpfTree` without depending
+    on `sorryAx`
+  -/
+  #print axioms node
+
+  #check TypeVec.Arrow
+
+  #check TypeFun
+
+  #check Comp
+  #check Vec.reverse_involution
+
+  #check PFin2
+  #check Vec
+  #check Matrix.vecCons
+
+  #check Mathlib.Tactic.etaExpandAll
+  #check Fin.rev
+  #check Fin
+
+  -- abbrev long_type (β : Type) := TypeVec.Arrow (Shape.ChildT Shape.HeadT.node) fun i =>
+  -- G i ((Vec.reverse (Vec.append1 Vec.nil β)) ::: (Fix Base (Vec.reverse (Vec.append1 Vec.nil β))))
+
   theorem type_equality_2 (β : Type) :
   (fun (i : Fin2 1) => Matrix.vecCons β ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))) = fun (i : Fin2 1) => β := by {
     sorry
@@ -378,17 +386,19 @@ namespace QpfTree
           → (t : QpfTree β)
           → (motive t) :=
   fun given_hyp t => by {
-    let t' := Fix.dest t;
-    rcases t' with ⟨a, f⟩;
+    let ⟨Shape.HeadT.node, f⟩ := Fix.dest t;
+    -- rcases t' with ⟨a, f⟩;
 
     -- type signature for f post simp mysteriously changed
-    cases a ; simp [MvPFunctor.B] at f;
+    -- cases a ;
     let required_equality := curried_uncurried_equal β
 
     -- repair work for mysterious type change
     let type_equality : (fun i => G i ((Vec.reverse fun i => β) ::: Fix Base (Vec.reverse fun i => β))) 0 = QpfList' (fun (i : Fin2 1) => QpfTree β) := by {
       sorry
     }
+    -- Lean doesn't like rewriting of children's type
+    simp [type_equality_2 β] at f
 
     let children := f 0 .fz
     rw [type_equality] at children
@@ -403,24 +413,47 @@ namespace QpfTree
 
     -- extremely weird, this was not an issue before!
     -- let type_equality_2 :
-    let ⟨a, f_right⟩ := Fix.dest t
+    rw [← (type_equality_2 β)] at f
+
+    let letsTry2 : Fix.mk ⟨Shape.HeadT.node, f⟩ = (node elem children) := by {
+      unfold node
+      simp
+      apply congrArg
+      apply congrArg
+      apply funext
+      intro x
+      rw [← (@PFin2.ofFin2_toFin2_iso 2 x)]
+      apply funext
+      intro x_1
+      generalize PFin2.ofFin2 x = g at *
+      cases g
+      simp [Shape.ChildT] at x_1
+      suffices ex3 : (Fin.rev (PFin2.toFin (PFin2.ofFin2 (PFin2.toFin2 PFin2.fz)))) = 0
+      rw [ex3, Matrix.cons_val_zero] at x_1
+      simp [PFin2.toFin2]
+
+    }
+
+
+    let ⟨Shape.HeadT.node, f_right⟩ := Fix.dest t
+    let ⟨Shape.HeadT.node, f_left⟩ := Fix.dest (node elem children)
+
+    let lets_try1 : ∀ i : Fin2 2, f_left i = f_right i := by {
+      intro i
+      cases (PFin2.ofFin2 i)
+
+    }
+
     suffices fix_expansion_equality : Fix.mk ⟨Shape.HeadT.node, f_right⟩ = t
     rw [←fix_expansion_equality]
-
-    conv =>
-      lhs
-      rw [← Fix.mk_dest (node elem children)]
+    unfold node
     apply congrArg
-    let ⟨Shape.HeadT.node, f_left⟩ := Fix.dest (node elem children)
-    apply congrArg
-
-    let almost_done_equality : f_left = f_right := by sorry
-    trivial
-    sorry
-
+    simp
   }
 
 end QpfTree
+
+#check Vec.reverse
 
 #check funext
 
