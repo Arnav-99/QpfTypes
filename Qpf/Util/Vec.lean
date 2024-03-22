@@ -109,6 +109,27 @@ namespace Vec
     dsimp only [reverse]
     apply congrArg;
     simp only [Fin2.inv, PFin2.toFin2_ofFin2_iso, PFin2.inv_involution, PFin2.ofFin2_toFin2_iso]
+
+  @[simp]
+  theorem reverse_nil : (nil : Vec α 0).reverse = nil := by
+    funext i; contradiction
+
+  @[simp]
+  theorem reverse_one {a : α} : (append1 nil a).reverse = append1 nil a := by
+    funext i
+    match i with
+    | .fz => simp [reverse, append1]; rfl
+    | .fs j => contradiction
+
+  @[simp]
+  theorem reverse_fun_one {α : Type _} : Vec.reverse (fun (i : Fin2 1) => α) = (fun (i : Fin2 1) => α) := rfl
+
+  -- CC: Similar simp lemmas exist for reversing on Matrix.vecCons as well, but I wasn't able to get the right form today.
+  -- Try something like what is written below?
+
+  --@[simp]
+  --theorem vecCons_reverse_one {α : Type _} : Vec.reverse (Matrix.vecCons ![] α) = Matrix.vecCons ![] α := by
+  --  simp [Matrix.vecCons, Vec.reverse, Vec.append1]
 end Vec
 
 
@@ -206,7 +227,7 @@ namespace Vec
       simp only [toList, ofList, append1, last, DVec.last, drop_append1', ih]
 
   instance : Coe (Vec (Type u) n) (TypeVec.{u} n) where
-    coe v i := v i
+    coe v := fun i => v i
 
   instance : Coe (TypeVec.{u} n) (Vec (Type u) n) where
     coe v i := v i

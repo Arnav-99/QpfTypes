@@ -116,3 +116,16 @@ namespace TypeFun
     simp only [ofCurried, curried, ofCurriedAux_curriedAux_involution]
     apply reverseArgs_involution
 end TypeFun
+
+
+namespace TypeVec
+
+instance : Coe (Type _) (TypeVec 1) where
+  coe α := fun _ => α
+
+instance : Coe (TypeVec 1) (Type _) where
+  coe v := v 0
+
+-- CC: Similar coercions might exist for (TypeFun 1) as well
+
+end TypeVec
