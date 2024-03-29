@@ -120,6 +120,9 @@ namespace QpfList
 #check List.rec
 #check Fix.ind
 #check Fix.mk_dest
+#check PFin2.fz
+
+#check MvFunctor.map
 
   def rec {α} {motive : QpfList α → Sort _} :
     (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
@@ -141,6 +144,46 @@ namespace QpfList
       simp [TypeFun.curriedAux, TypeFun.reverseArgs]) tl)
       (cast (by sorry) hx)
     rcases hx with ⟨y, hy⟩
+
+
+    convert this
+    unfold cons
+    apply congrArg
+    simp
+    apply funext
+    intro x
+    rw [← (@PFin2.ofFin2_toFin2_iso 2 x)]
+
+    cases (PFin2.ofFin2 x) with
+    | fz => {
+      apply funext
+      intro x
+      simp [MvPFunctor.B, PFin2.toFin2, ChildT] at x
+      simp [PFin2.toFin2]
+      have something : x = () := by trivial
+      rw [something]
+      -- can't recognize previous binding of f 0 () to hd
+      -- adding sorry errors
+      sorry
+    }
+
+    | fs n => {
+      cases n with
+      | fs n' => contradiction
+      | fz => {
+        apply funext
+        intro x
+        simp [MvPFunctor.B, PFin2.toFin2, ChildT] at x
+        simp [PFin2.toFin2]
+        have something : x = () := by trivial
+        rw [something]
+        -- error when forcing x to ()
+        -- can't recognize previous binding of f 1 () to tl
+        -- adding sorry causes universe error
+        sorry
+      }
+    }
+
     -- Something like the following might be possible
     -- convert h_rec hd y hy
     done
