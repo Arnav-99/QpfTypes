@@ -1,6 +1,8 @@
 import Qpf
 open MvQPF
 
+#check Vec.nil
+
 /-!
   Let us start with a simple example of an inductive type: lists
   ```lean4
@@ -121,8 +123,11 @@ namespace QpfList
 #check Fix.ind
 #check Fix.mk_dest
 #check PFin2.fz
+#check Matrix.vecCons
+#check TypeVec
 
 #check MvFunctor.map
+
 
   def rec {α} {motive : QpfList α → Sort _} :
     (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
@@ -136,7 +141,8 @@ namespace QpfList
   · rw [nil] at h_nil
     convert h_nil
   · have tl := f .fz ()
-    have hd := f (.fs .fz) ()
+    let hd := f (.fs .fz) ()
+    simp [Vec.reverse] at hd
     simp [Vec.reverse, TypeVec.append1] at hd tl
     simp [Vec.reverse, Matrix.vecCons, Fin.rev, Fin.cons, Fin.cases] at hx
     have := h_rec hd (cast (by
@@ -162,7 +168,7 @@ namespace QpfList
       simp [PFin2.toFin2]
       have something : x = () := by trivial
       rw [something]
-      -- can't recognize previous binding of f 0 () to hd
+      -- can't recognize previous binding of f 0 () to tl
       -- adding sorry errors
       sorry
     }
@@ -178,7 +184,7 @@ namespace QpfList
         have something : x = () := by trivial
         rw [something]
         -- error when forcing x to ()
-        -- can't recognize previous binding of f 1 () to tl
+        -- can't recognize previous binding of f 1 () to hd
         -- adding sorry causes universe error
         sorry
       }
