@@ -73,10 +73,12 @@ namespace QpfList
   We manually define the constructors in terms of `Fix.mk`
 -/
 
+  @[reducible]
   def nil {α : Type} : QpfList α :=
     Fix.mk ⟨HeadT.nil, fun _ emp => by contradiction⟩
 
-
+  -- CC: Why does marking this as @[reducible] case errors later?
+  -- Particularly with `funext`, `congr`, etc.
   def cons {α} (hd : α) (tl : QpfList α) : QpfList α :=
     Fix.mk ⟨HeadT.cons, fun i _ => match i with
                           | 0 => tl
@@ -109,160 +111,75 @@ namespace QpfList
     | cons hd tl => cons (2*hd) (mul2 tl)
   -/
 
-  theorem cases_eq : ∀ (l : QpfList α), l = nil ⊕' Σ' hd tl, l = cons hd tl := by
-    intro l
-    have : ∃ l', Fix.mk l' = l := by
-      use Fix.dest l; exact Fix.mk_dest l
-    sorry
-    -- It is likely that `cases_eq` is helpful for proving `rec`, but since it
-    -- doesn't talk about `motive`, it might not actually be that helpful.
-    -- Besides, it might also be of similar difficult to prove it wrt rec!
-    done
-
-#check List.rec
-#check Fix.ind
-#check Fix.mk_dest
-#check PFin2.fz
-#check Matrix.vecCons
-#check TypeVec
-
-#check MvFunctor.map
-
-
   def rec {α} {motive : QpfList α → Sort _} :
-    (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
-    → (t : QpfList α) → motive t := by
-
-  intro h_nil h_rec
-  apply Fix.ind
-  intro x hx
-  rcases x with ⟨a, f⟩
-  cases a
-  · rw [nil] at h_nil
-    convert h_nil
-  · have tl := f .fz ()
-    let hd := f (.fs .fz) ()
-    simp [Vec.reverse] at hd
-    simp [Vec.reverse, TypeVec.append1] at hd tl
-    simp [Vec.reverse, Matrix.vecCons, Fin.rev, Fin.cons, Fin.cases] at hx
-    have := h_rec hd (cast (by
-      unfold QpfList TypeFun.curried
-      simp [TypeFun.curriedAux, TypeFun.reverseArgs]) tl)
-      (cast (by sorry) hx)
-    rcases hx with ⟨y, hy⟩
-
-
-    convert this
-    unfold cons
-    apply congrArg
-    simp
-    apply funext
-    intro x
-    rw [← (@PFin2.ofFin2_toFin2_iso 2 x)]
-
-    cases (PFin2.ofFin2 x) with
-    | fz => {
-      apply funext
-      intro x
-      simp [MvPFunctor.B, PFin2.toFin2, ChildT] at x
-      simp [PFin2.toFin2]
-      have something : x = () := by trivial
-      rw [something]
-      -- can't recognize previous binding of f 0 () to tl
-      -- adding sorry errors
-      sorry
-    }
-
-    | fs n => {
-      cases n with
-      | fs n' => contradiction
-      | fz => {
-        apply funext
-        intro x
-        simp [MvPFunctor.B, PFin2.toFin2, ChildT] at x
-        simp [PFin2.toFin2]
-        have something : x = () := by trivial
-        rw [something]
-        -- error when forcing x to ()
-        -- can't recognize previous binding of f 1 () to hd
-        -- adding sorry causes universe error
-        sorry
-      }
-    }
-
-    -- Something like the following might be possible
-    -- convert h_rec hd y hy
-    done
-  done
-  --apply Fix.drec (β := motive)
-
-  --rcases Fix.dest l with ⟨a, f⟩
-  /-
-  have := Fix.mk_dest l
-
-  rw [← Fix.mk_dest l]
-  match h_dest : Fix.dest l with
-  | ⟨a, f⟩ =>
+      (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
+      → (t : QpfList α) → motive t := by
+    intro h_nil h_rec
+    apply Fix.ind
+    rintro ⟨a, f⟩ h_rec_motive
     cases a
-    · rw [h_dest] at this
-      rw [nil] at h_nil
-      convert h_nil
-      --exact h_nil
-    · simp [TypeVec.Arrow, ChildT] at f
-      have tl := f .fz ()
-      have hd := f (.fs .fz) ()
-      simp [Vec.reverse, Vec.append1, TypeVec.append1] at hd tl
-      convert h_rec hd (cast ?C tl)
-      · congr
-
-        --exact cast l
-
-        done
-      · unfold QpfList TypeFun.curried
-        simp [TypeFun.curriedAux, TypeFun.reverseArgs]
-        done
-
-      done
-      --suffices
-      --apply h_nil
-
+    · convert h_nil
+    · /- `h_rec_motive` is a lifted predicate over the multi-variate functor
+         that gives back the motive on list under `f`. However, to access the
+         motive on our particular `f`, we go through `MvQPF.liftP_iff`, which
+         gives us access to the abstracted (i.e., quotiented) version of our
+         data type. However, since `QpfLists` aren't behaviorally quotients
+         (meaning that order is preserved), the lifting operation that gives
+         us the motive on the abstracted version also holds on the concrete
+         version, since they're the same thing. -/
+      rw [MvQPF.liftP_iff] at h_rec_motive
+      rcases h_rec_motive with ⟨a, _, h_abs, d⟩
+      /- Interestingly, typing `injection h_abs` causes one of the generated
+         hypotheses to be `Heq f b` instead of `f = b`, likely because `a` is
+         involved in other terms, and so Lean doesn't want to commit to an
+         equality just yet.
+         So we do the slightly more roundabout thing and case on `a`. -/
+      cases a <;> injection h_abs <;> try contradiction
+      rename _ => h; subst h
+      /- Alternatively, we can do `simp [cons] at h_rec`
+          to avoid unfolding `cons` in the generated goal after `convert`.
+          However, I think it's cleaner this way, since it follows the
+          analogous form of induction with lists. -/
+      convert h_rec (f (.fs .fz) ()) (f .fz ()) (d .fz ())
+      -- The types don't exactly match, since `cons` hides some machinery.
+      -- `convert` generates a new goal for us.
+      rw [cons]
+      congr
+      ext
+      /- It turns out that Lean is very smart with "simple" types. Here, we
+         want to show that `f` and an anonymous function are equal under two
+         arguments. But because we can peek under the anonymous function,
+         we can let Lean split on the branches with `split`. Thus, we find
+         that the two are equal, and can close each branch with `rfl`. -/
+      split <;> rfl
       done
     done
-    -/
-  --rcases Fix.dest l with ⟨a, f⟩
 
-  -- Below doesn't work for some reason...
-  --rcases cases_eq l with (h | h)
-  --done
-  /-
-  apply Or.elim (cases_eq l)
-  · rintro rfl; exact h_nil
-  · rintro ⟨hd, tl, rfl⟩
-    exact h_rec hd tl -/
+#check PSum
+#check PSigma
+#check PProd
 
-  /-fun base_case rec_case t => by
-    let t' := Fix.dest t;
-    simp [MvPFunctor.Obj] at t'
-    rcases t' with ⟨a, f⟩
-    cases a <;> simp [MvPFunctor.B] at f
-
-    let g := fun ⟨a, f⟩ => match a with
-      | HeadT.nil  => cast (
-                        by  delta nil;
-                            apply congrArg; apply congrArg;
-                            simp [MvFunctor.map];
-                            conv in (fun x emp => _) => {
-                              tactic => funext x y; contradiction;
-                            }
-                      ) base_case
-      | HeadT.cons => by simp [MvPFunctor.B, HeadT, ChildT] at f
-                         skip
-                         sorry
-                      cast (
-                        _
-                      ) (rec_case (f (Fin2.fz) (by simp [P.B])) _)
-    Fix.drec (β := motive) g t -/
-
+  /- CC: Because QpfLists are W-types, meaning actual concrete QpfLists are
+         types, and not instances of a type, to say that a list `l` is either
+         `nil` or `cons` is actually a statement on types.
+         The correct way of phrasing it is using `PSigma` and `PSum`. -/
+  theorem cases_eq : ∀ (l : QpfList α), l = nil ⊕' Σ' hd tl, l = cons hd tl := by
+    --intro l
+    apply Fix.drec
+    rintro ⟨a, f⟩
+    cases a
+    · left; simp [nil]
+      congr
+      simp [MvFunctor.map, MvPFunctor.map, P]
+      congr
+      ext
+      contradiction
+    · right
+      refine' ⟨(f (.fs .fz) ()), ?_⟩
+      -- CC: Unclear why this isn't typing correctly, but it does above
+      stop
+      refine' ⟨(f .fz ()), ?_⟩
+      done
 
 end QpfList
 
