@@ -159,10 +159,17 @@ namespace QpfList
 #check PSigma
 #check PProd
 
+#check List.rec
+#check TypeVec.id
+#check MvFunctor.map
+#check TypeVec.comp
+#check PFin2
+
   /- CC: Because QpfLists are W-types, meaning actual concrete QpfLists are
          types, and not instances of a type, to say that a list `l` is either
          `nil` or `cons` is actually a statement on types.
          The correct way of phrasing it is using `PSigma` and `PSum`. -/
+  #check PSigma
   theorem cases_eq : ∀ (l : QpfList α), l = nil ⊕' Σ' hd tl, l = cons hd tl := by
     --intro l
     apply Fix.drec
@@ -176,11 +183,30 @@ namespace QpfList
       contradiction
     · right
       refine' ⟨(f (.fs .fz) ()), ?_⟩
+      -- makes lhs look a bit more like nil case
+      simp [MvFunctor.map, MvPFunctor.map]
+      simp [cons]
+      -- tl mysteriously disappears after next step
+      apply PSigma.mk
+      congr
+      unfold TypeVec.comp
+      ext fnIndex unit
+      rw [← (@PFin2.ofFin2_toFin2_iso 2 fnIndex)]
+      cases PFin2.ofFin2 fnIndex
+      simp [PFin2.toFin2]
+
+
+
       -- CC: Unclear why this isn't typing correctly, but it does above
       stop
       refine' ⟨(f .fz ()), ?_⟩
       done
 
 end QpfList
+
+-- questions:
+-- PSigma.mk
+-- convert tactic usage
+--
 
 export QpfList (QpfList QpfList')
