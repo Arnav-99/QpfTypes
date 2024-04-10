@@ -1,7 +1,19 @@
 import Qpf
 open MvQPF
 
-#check Vec.nil
+/-
+open Nat
+
+--def natId (x : Nat) : Nat := x
+
+#check PSigma
+example : (Σ' (fn : Nat → Nat), fn = (fun x => x)) := by
+  -- creates unwanted synthetic hole
+  exact ⟨(fun x => x), rfl⟩
+  apply PSigma.mk
+  sorry
+
+#exit -/
 
 /-!
   Let us start with a simple example of an inductive type: lists
@@ -34,6 +46,18 @@ namespace QpfList
   inductive HeadT
     | nil
     | cons
+
+  #check List.rec
+  #check List.recOn
+  #check List.casesOn
+  #check List.brecOn
+  #check List.below
+  #check List.ibelow
+  #check List.noConfusion
+  #check List.noConfusionType
+
+  #print List.noConfusion
+  #print List.below
 
   /-
     The "child" type tells us for each constructor (i.e., element of `HeadT`) and each type argument,
@@ -164,12 +188,30 @@ namespace QpfList
 #check MvFunctor.map
 #check TypeVec.comp
 #check PFin2
+#check List.rec
+#check List.recOn
+#check List.brecOn
+#check List.below
+#print List.below
+
 
   /- CC: Because QpfLists are W-types, meaning actual concrete QpfLists are
          types, and not instances of a type, to say that a list `l` is either
          `nil` or `cons` is actually a statement on types.
          The correct way of phrasing it is using `PSigma` and `PSum`. -/
   #check PSigma
+
+/-
+  theorem cases_eq : ∀ (l : QpfList α), l = nil ∨ ∃ hd tl, l = cons hd tl := by
+    apply Fix.ind
+    intro x
+    rw [MvQPF.liftP_iff]
+    rcases x with ⟨a, f⟩
+    cases a
+    · use HeadT.nil
+      done
+    done -/
+
   theorem cases_eq : ∀ (l : QpfList α), l = nil ⊕' Σ' hd tl, l = cons hd tl := by
     --intro l
     apply Fix.drec
@@ -182,13 +224,47 @@ namespace QpfList
       ext
       contradiction
     · right
+      /-
+      f : TypeVec.Arrow (MvPFunctor.B P HeadT.cons)
+  ((Vec.reverse fun i => Matrix.vecCons α ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))) :::
+    Fix F (Vec.reverse fun i => Matrix.vecCons α ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))))
+      -/
+      refine' ⟨(f (.fs .fz) ()), ?_⟩
+      have := f .fz ()
+      simp [Vec.reverse, Matrix.vecCons, Fin.rev, TypeVec.append1] at this
+      rcases this with ⟨c, d⟩
+      rcases d with (h | h)
+      ·
+        apply PSigma.mk c
+        simp [MvFunctor.map, MvPFunctor.map, cons]
+        congr
+        ext
+        rename Fin2 (1 + 1) => i
+        rename _ => h₂
+        cases i
+        · simp [h, TypeVec.comp, nil]
+          simp [ChildT] at h₂
+          done
+        done
       refine' ⟨(f (.fs .fz) ()), ?_⟩
       -- makes lhs look a bit more like nil case
       simp [MvFunctor.map, MvPFunctor.map]
       simp [cons]
+      apply PSigma.mk --(TypeVec.comp (TypeVec.id ::: Sigma.fst) f .fz (ChildT HeadT.cons .fz))
       -- tl mysteriously disappears after next step
-      apply PSigma.mk
+      --refine' PSigma.mk ?_ ?_
+      --· sorry
+      --  done
+      next =>
+
+        done
       congr
+      ext
+      rename Fin2 (1 + 1) => i
+      rename _ => h
+      cases i
+      · simp
+        done
       unfold TypeVec.comp
       ext fnIndex unit
       rw [← (@PFin2.ofFin2_toFin2_iso 2 fnIndex)]
