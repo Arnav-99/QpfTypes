@@ -227,9 +227,8 @@ namespace QpfList
       /- `hd` and `tl`, similar to `ind` above. -/
       apply PSigma.mk (f (.fs .fz) ())
       apply PSigma.mk (f .fz ()).1
-      congr
-      /- Again, these maps are nontrivial, so we unfold their definitions. -/
       simp [MvFunctor.map, MvPFunctor.map, P]
+      /- Again, these maps are nontrivial, so we unfold their definitions. -/
       /- The ending of this proof closely matches the ending of `ind` above. -/
       congr
       ext
