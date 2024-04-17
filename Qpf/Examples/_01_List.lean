@@ -97,13 +97,10 @@ namespace QpfList
   We manually define the constructors in terms of `Fix.mk`
 -/
 
-  @[reducible]
-  def nil {α : Type} : QpfList α :=
+  abbrev nil {α : Type} : QpfList α :=
     Fix.mk ⟨HeadT.nil, fun _ emp => by contradiction⟩
 
-  -- CC: Why does marking this as @[reducible] case errors later?
-  -- Particularly with `funext`, `congr`, etc.
-  def cons {α} (hd : α) (tl : QpfList α) : QpfList α :=
+  abbrev cons {α} (hd : α) (tl : QpfList α) : QpfList α :=
     Fix.mk ⟨HeadT.cons, fun i _ => match i with
                           | 0 => tl
                           | 1 => hd
@@ -160,16 +157,10 @@ namespace QpfList
          So we do the slightly more roundabout thing and case on `a`. -/
       cases a <;> injection h_abs <;> try contradiction
       rename _ => h; subst h
-      /- Alternatively, we can do `simp [cons] at h_rec`
-          to avoid unfolding `cons` in the generated goal after `convert`.
-          However, I think it's cleaner this way, since it follows the
-          analogous form of induction with lists. -/
+      /- Because `cons` is marked as an `abbrev`, Lean can peer under the
+         definition and, via `convert`, insert new goals for the types that
+         don't agree. In this case, we have a anonymous wrapper for `f`. -/
       convert h_rec (f (.fs .fz) ()) (f .fz ()) (d .fz ())
-      -- The types don't exactly match, since `cons` hides some machinery.
-      -- `convert` generates a new goal for us.
-      rw [cons]
-      congr
-      ext
       /- It turns out that Lean is very smart with "simple" types. Here, we
          want to show that `f` and an anonymous function are equal under two
          arguments. But because we can peek under the anonymous function,
@@ -195,94 +186,55 @@ namespace QpfList
 #print List.below
 
 
-  /- CC: Because QpfLists are W-types, meaning actual concrete QpfLists are
+  /- CC: Because `QpfLists` are W-types, meaning that concrete `QpfLists` are
          types, and not instances of a type, to say that a list `l` is either
          `nil` or `cons` is actually a statement on types.
-         The correct way of phrasing it is using `PSigma` and `PSum`. -/
-  #check PSigma
-
-/-
-  theorem cases_eq : ∀ (l : QpfList α), l = nil ∨ ∃ hd tl, l = cons hd tl := by
-    apply Fix.ind
-    intro x
-    rw [MvQPF.liftP_iff]
-    rcases x with ⟨a, f⟩
-    cases a
-    · use HeadT.nil
-      done
-    done -/
-
+         The correct way of phrasing it is by using `PSigma` and `PSum`. -/
   theorem cases_eq : ∀ (l : QpfList α), l = nil ⊕' Σ' hd tl, l = cons hd tl := by
-    --intro l
+    /- `Fix.ind` works on `Sort`, which doesn't play nice with dependent types.
+       As a result, we use the dependent recursor, `Fix.drec`.
+
+       The dependent recursor applies the "functor" `β` to the `n + 1`th type
+       of the provided `MvQPF` functor (here, `QpfList`). By applying the
+       recursor, have gain an implicit induction hypothesis on the type. -/
     apply Fix.drec
     rintro ⟨a, f⟩
     cases a
-    · left; simp [nil]
-      congr
+    · /- In the nil case, we explicitly say that we are in the left branch of
+         the type (we can think of `⊕'` as analogous to `∨`). Hence, `left`.
+         The proof then amounts to showing that the provided type constructions
+         via `Fix` are equivalent. -/
+      left
+      /- The maps here are nontrivial, and so we need to unfold their defs. -/
       simp [MvFunctor.map, MvPFunctor.map, P]
+      /- Because `nil` has been marked as an `abbrev`, no simp is needed.
+         Instead, we say that the `Fix.mk`s are congruent. -/
       congr
+      /- Two `TypeVec`s are equal if they are extensionally equivalent. -/
       ext
+      /- We gain an element of `Fin2 0` in our context, which isn't possible. -/
       contradiction
-    · right
-      /-
-      f : TypeVec.Arrow (MvPFunctor.B P HeadT.cons)
-  ((Vec.reverse fun i => Matrix.vecCons α ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))) :::
-    Fix F (Vec.reverse fun i => Matrix.vecCons α ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))))
-      -/
-      refine' ⟨(f (.fs .fz) ()), ?_⟩
-      have := f .fz ()
-      simp [Vec.reverse, Matrix.vecCons, Fin.rev, TypeVec.append1] at this
-      rcases this with ⟨c, d⟩
-      rcases d with (h | h)
-      ·
-        apply PSigma.mk c
-        simp [MvFunctor.map, MvPFunctor.map, cons]
-        congr
-        ext
-        rename Fin2 (1 + 1) => i
-        rename _ => h₂
-        cases i
-        · simp [h, TypeVec.comp, nil]
-          simp [ChildT] at h₂
-          done
-        done
-      refine' ⟨(f (.fs .fz) ()), ?_⟩
-      -- makes lhs look a bit more like nil case
-      simp [MvFunctor.map, MvPFunctor.map]
-      simp [cons]
-      apply PSigma.mk --(TypeVec.comp (TypeVec.id ::: Sigma.fst) f .fz (ChildT HeadT.cons .fz))
-      -- tl mysteriously disappears after next step
-      --refine' PSigma.mk ?_ ?_
-      --· sorry
-      --  done
-      next =>
+    · /- In the cons case, we explicity say that we are in the right branch.
+          Then, we supply the pieces of the `QpfList`. We do this with `f`,
+          similar to the `ind` proof above. The difference is that the output
+          of `f` has a recursor applied, meaning that the construction
 
-        done
+            `f .fz ()`
+
+          is a product of a list and a type-transformed recursive statement.
+          We get the list itself (·.1) to provide to the type construction. -/
+      right
+      /- `hd` and `tl`, similar to `ind` above. -/
+      apply PSigma.mk (f (.fs .fz) ())
+      apply PSigma.mk (f .fz ()).1
+      congr
+      /- Again, these maps are nontrivial, so we unfold their definitions. -/
+      simp [MvFunctor.map, MvPFunctor.map, P]
+      /- The ending of this proof closely matches the ending of `ind` above. -/
       congr
       ext
-      rename Fin2 (1 + 1) => i
-      rename _ => h
-      cases i
-      · simp
-        done
-      unfold TypeVec.comp
-      ext fnIndex unit
-      rw [← (@PFin2.ofFin2_toFin2_iso 2 fnIndex)]
-      cases PFin2.ofFin2 fnIndex
-      simp [PFin2.toFin2]
-
-
-
-      -- CC: Unclear why this isn't typing correctly, but it does above
-      stop
-      refine' ⟨(f .fz ()), ?_⟩
-      done
+      split <;> rfl
 
 end QpfList
-
--- questions:
--- PSigma.mk
--- convert tactic usage
---
 
 export QpfList (QpfList QpfList')
