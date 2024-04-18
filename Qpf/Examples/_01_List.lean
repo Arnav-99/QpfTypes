@@ -194,6 +194,8 @@ namespace QpfList
 #check List.below
 #print List.below
 
+#print Fix.mk
+
 
   /- CC: Because QpfLists are W-types, meaning actual concrete QpfLists are
          types, and not instances of a type, to say that a list `l` is either
