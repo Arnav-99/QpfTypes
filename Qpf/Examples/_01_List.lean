@@ -170,6 +170,50 @@ namespace QpfList
       done
     done
 
+
+
+    -- recOn version
+    -- only change required was introduction of extra variable
+    def recOn {α} {motive : QpfList α → Sort _} :
+      (t : QpfList α) → (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
+      → motive t := by
+    intro t h_nil h_rec
+    apply Fix.ind
+    rintro ⟨a, f⟩ h_rec_motive
+    cases a
+    · convert h_nil
+    · /- `h_rec_motive` is a lifted predicate over the multi-variate functor
+         that gives back the motive on list under `f`. However, to access the
+         motive on our particular `f`, we go through `MvQPF.liftP_iff`, which
+         gives us access to the abstracted (i.e., quotiented) version of our
+         data type. However, since `QpfLists` aren't behaviorally quotients
+         (meaning that order is preserved), the lifting operation that gives
+         us the motive on the abstracted version also holds on the concrete
+         version, since they're the same thing. -/
+      rw [MvQPF.liftP_iff] at h_rec_motive
+      rcases h_rec_motive with ⟨a, _, h_abs, d⟩
+      /- Interestingly, typing `injection h_abs` causes one of the generated
+         hypotheses to be `Heq f b` instead of `f = b`, likely because `a` is
+         involved in other terms, and so Lean doesn't want to commit to an
+         equality just yet.
+         So we do the slightly more roundabout thing and case on `a`. -/
+      cases a <;> injection h_abs <;> try contradiction
+      rename _ => h; subst h
+      /- Because `cons` is marked as an `abbrev`, Lean can peer under the
+         definition and, via `convert`, insert new goals for the types that
+         don't agree. In this case, we have a anonymous wrapper for `f`. -/
+      convert h_rec (f (.fs .fz) ()) (f .fz ()) (d .fz ())
+      /- It turns out that Lean is very smart with "simple" types. Here, we
+         want to show that `f` and an anonymous function are equal under two
+         arguments. But because we can peek under the anonymous function,
+         we can let Lean split on the branches with `split`. Thus, we find
+         that the two are equal, and can close each branch with `rfl`. -/
+      split <;> rfl
+      done
+    done
+
+
+
 #check PSum
 #check PSigma
 #check PProd
@@ -180,10 +224,12 @@ namespace QpfList
 #check TypeVec.comp
 #check PFin2
 #check List.rec
-#check List.recOn
+-- #check List.recOn
 #check List.brecOn
 #check List.below
 #print List.below
+#check TypeVec.comp
+#print PProd
 
 #print Fix.mk
 
