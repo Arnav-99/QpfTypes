@@ -97,7 +97,7 @@ namespace QpfList
   We manually define the constructors in terms of `Fix.mk`
 -/
 
-  abbrev nil {α : Type} : QpfList α :=
+  abbrev nil {α : Type _} : QpfList α :=
     Fix.mk ⟨HeadT.nil, fun _ emp => by contradiction⟩
 
   abbrev cons {α} (hd : α) (tl : QpfList α) : QpfList α :=
@@ -108,10 +108,10 @@ namespace QpfList
 
 
   -- Curiously, similar "constructors" can be made for the uncurried version QpfList'
-  def nil' {α : Type} : QpfList' α :=
+  def nil' {α : Type _} : QpfList' α :=
     Fix.mk ⟨HeadT.nil, fun _ emp => by contradiction⟩
 
-  def cons' {α : Type} (hd : α) (tl : QpfList' α): QpfList' α :=
+  def cons' {α : Type _} (hd : α) (tl : QpfList' α): QpfList' α :=
     Fix.mk ⟨HeadT.cons, fun i _ => match i with
                           | 0 => tl
                           | 1 => hd
@@ -124,6 +124,7 @@ namespace QpfList
   example : QpfList' Nat :=
     cons' 1 $ cons' 2 $ cons' 3 $ nil'
 
+#check List.rec
   /-
     Pattern matching does not work like one would expect, but we'll ignore it for now
 
@@ -132,7 +133,7 @@ namespace QpfList
     | cons hd tl => cons (2*hd) (mul2 tl)
   -/
 
-  def rec {α} {motive : QpfList α → Sort _} :
+  def rec {α : Type _} {motive : QpfList α → Sort _} :
       (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
       → (t : QpfList α) → motive t := by
     intro h_nil h_rec
@@ -178,11 +179,12 @@ namespace QpfList
 
     -- recOn version
     -- only change required was introduction of extra variable
-    def recOn {α} {motive : QpfList α → Sort _} :
+    def recOn {α : Type _} {motive : QpfList α → Sort _} :
       (t : QpfList α) → (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
       → motive t := by
     intro t h_nil h_rec
     apply Fix.ind
+    -- CC: Think about why we don't need `t` here: probably to do with types vs. concrete items of types
     rintro ⟨a, f⟩ h_rec_motive
     cases a
     · convert h_nil
@@ -237,6 +239,8 @@ namespace QpfList
 
 #print Fix.mk
 
+def my_fn (l : List α) : α → List α
+  | a => my_fn (List.cons a l) a
 
   /- CC: Because `QpfLists` are W-types, meaning that concrete `QpfLists` are
          types, and not instances of a type, to say that a list `l` is either
@@ -285,6 +289,13 @@ namespace QpfList
       congr
       ext
       split <;> rfl
+
+#print Nat.below
+
+@[reducible] protected def QpfList.below : {α : Type _} →
+  {motive : QpfList α → Sort _} → QpfList α → Sort _ :=
+fun {α} {motive} t =>
+  QpfList.rec PUnit (fun head tail tail_ih => PProd (PProd (motive tail) tail_ih) PUnit) t
 
 end QpfList
 

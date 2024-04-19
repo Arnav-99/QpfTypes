@@ -12,6 +12,20 @@ open MvQPF
 
 -- #check RoseTree.rec
 
+inductive Hello (α : Type _)
+  | fst : α → α → Hello α
+  | snd : α → Hello α
+  | thd : Hello α
+
+inductive RT (α : Type _) : Type _
+  | node : α → List (RT α) → RT α
+
+#check RT.rec
+
+--theorem tryItOut : ∀ (t : RT α),
+
+#check Hello.rec
+
 namespace QpfTree
   namespace Shape
     /-
@@ -145,16 +159,52 @@ namespace QpfTree
 
   -- rec for rose trees
 
+  #check Subtype
+  #check Prod
+
+  def helper (a : Int) : Int := a
+  def int' := { z : Int // z % 2 = 0 }
+
+/-
+  def rec {α} {motive : QpfTree α → Sort _}
+    {motive₂ : ∀ (a : α) (l : QpfList ({ T : QpfTree α // motive T})),
+      motive (node a (l.map ..))}
+
+    {motive₃ : ∀ (a : α) (l : QpfList (QpfTree α)),
+      ∃ l' : QpfList ({ T : QpfTree α // motive T}), motive (node a (l'.map ..))}
+  := by
+  sorry
+
+  RT.rec.{u, u_1} {α : Type u_1} {motive_1 : RT α → Sort u} {motive_2 : List (RT α) → Sort u}
+  (node : (a : α) → (a_1 : List (RT α)) → motive_2 a_1 → motive_1 (RT.node a a_1)) (nil : motive_2 [])
+  (cons : (head : RT α) → (tail : List (RT α)) → motive_1 head → motive_2 tail → motive_2 (head :: tail)) (t : RT α) :
+  motive_1 t
+  done -/
+
   def rec {α} {motive_1 : QpfTree α → Sort _} {motive_2 : QpfList (QpfTree α) → Sort _} :
-  ((root : α) → (children : QpfList (QpfTree α)) → (motive_2 children)
-  → (motive_1 (node root children))) → (t : QpfTree α) → (motive_1 t) := by
-    intro h_rec t
+  ((root : α) → (children : QpfList (QpfTree α)) → (motive_2 children) → (motive_1 (node root children)))
+  → (motive_2 (QpfList.nil))
+  → ((head : QpfTree α) → (tail : QpfList (QpfTree α)) → motive_1 head → motive_2 tail → motive_2 (QpfList.cons head tail))
+  → (t : QpfTree α) → (motive_1 t) := by
+    intro h_rec h₁ h₂
     apply Fix.ind
     rintro ⟨a, f⟩ h_rec_motive
     cases a
     rw [MvQPF.liftP_iff] at h_rec_motive
     rcases h_rec_motive with ⟨a, _, h_abs, d⟩
-
+    cases a
+    -- CC: Why doesn't (f .fz .fz) work here? Unfold defs/abbrevs?
+    convert h_rec (f (.fs .fz) .fz) ?_ ?_ --(d .fz ?_)
+    apply QpfList.rec h₁ h₂ _
+    --rename (P ↑Shape.P).A => a
+    injection h_abs
+    rename Shape.HeadT.node = _ => h_node
+    simp [Shape.HeadT.node] at h_node
+    subst h_node
+    rename f = _ => h_f
+    subst h_f
+    simp
+    convert h_rec ?_ ?_ ?_
     have child_list : QpfList (QpfTree α) := by
       convert (f .fz .fz)
       simp
