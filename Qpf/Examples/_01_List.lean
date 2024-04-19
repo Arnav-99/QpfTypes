@@ -136,6 +136,10 @@ namespace QpfList
       (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
       → (t : QpfList α) → motive t := by
     intro h_nil h_rec
+    -- given that for every x : F alpha (Fix F alpha), there exists
+    -- u : F alpha (Subtype motive (Fix F alpha)), such that x can be
+    -- obtained from u just by Subtype.val, it needs to be shown that
+    -- the motive holds for Fix.mk x
     apply Fix.ind
     rintro ⟨a, f⟩ h_rec_motive
     cases a
