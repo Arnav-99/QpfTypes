@@ -3,30 +3,52 @@ import Qpf.Examples._01_List
 import Qpf.Macro.Tactic.FinDestr
 import Qpf.MathlibPort.Fin2
 
+namespace Testing
+
+inductive NonRec (α : Type _)
+  | fst : α → α → NonRec α
+  | snd : α → NonRec α
+  | thd : NonRec α
+
+/- CC: Notice how a separate hypothesis is made for each constructor, and each
+       constructor's arguments appear in the hypothesis, but because there are
+       no appearances of a `NonRec` type in any constructor, all that's needed
+       is a proof that the motive holds on the constructed `NonRec` object
+       with those constructor arguments.  -/
+#check NonRec.rec
+
+
+inductive Rec₁ (α : Type _) : Type _
+  | node : α → Rec₁ α → Rec₁ α → Rec₁ α
+
+/- CC: Here, we have something that looks like a binary tree, with two apperances
+       of the inductive type in the constructor. As a result, the motive must
+       hold for each of the two recursive arguments, before we prove that
+       the motive holds on the constructed `Rec₁` object. -/
+#check Rec₁.rec
+
+inductive Rec₂ (α : Type _) : Type _
+  | node : α → Rec₂ α → List (Rec₂ α) → Rec₂ α
+
+/- CC: Finally, we see a type that has an appearance of the type itself in an
+       argument, but folded into a different inductive type. Typically, we
+       just give the constructor's recursive arugments to the same motive to
+       start, but because the motive only takes a `Rec₂`, we require a new
+       motive that works on `List (Rec₂ α)`. Hence the two motives created
+       for the recursor. In a sense, the motive is required for us to talk
+       about the `Rec₂ α` objects "hiding" in the list. Otherwise, we don't
+       have access to the `Rec₂` objects in the list. The user-supplied motives
+       of the right types ensure that we can properly recurse (along with the
+       constraint that the List motive does, in fact, "implement" induction.) -/
+#check Rec₂.rec
+
+end Testing
+
+
 open MvQPF
 
--- open List
-
--- inductive RoseTree (β : Type) : Type _
---   | node : β → List (RoseTree β) → RoseTree β
-
--- #check RoseTree.rec
-
-inductive Hello (α : Type _)
-  | fst : α → α → Hello α
-  | snd : α → Hello α
-  | thd : Hello α
-
-inductive RT (α : Type _) : Type _
-  | node : α → List (RT α) → RT α
-
-#check RT.rec
-
---theorem tryItOut : ∀ (t : RT α),
-
-#check Hello.rec
-
 namespace QpfTree
+
   namespace Shape
     /-
       Since there is only one constructor, `def HeadT := Unit` would also have sufficed
@@ -42,6 +64,7 @@ namespace QpfTree
     abbrev F := TypeFun.curried P.Obj
 
     instance : MvFunctor P.Obj := by infer_instance
+
   end Shape
 
   /-
@@ -68,24 +91,16 @@ namespace QpfTree
     ```
   -/
 
-  #check Fin2
-  #check Fix.mk
-  #check TypeFun
-
-  abbrev G' (j : Fin2 1) : TypeVec 2 → Type := Prj 0
-
+  -- CC: There's probably a more compact way of writing this using `TypeVec.Arrow` or `Prj.map`
   abbrev G (i : Fin2 2) : TypeVec 2 → Type :=
     match i with
-    | 0 => Comp QpfList' G'
+    | 0 => Comp QpfList' (fun _ => Prj 0)
     | 1 => Prj 1
-
-  #check ![@Prj 2 0]
-  #check !![@Prj 2 0]
 
   abbrev Base : TypeFun 2
     := Comp Shape.P.Obj G
 
-  def F' := Shape.P.Obj
+  abbrev F := Shape.P.Obj
 
   instance : MvFunctor Shape.P.Obj := by infer_instance
   instance : MvQPF Shape.P.Obj := by infer_instance
@@ -96,44 +111,23 @@ namespace QpfTree
     | .fs s =>
       simp [G]
       split
-      · contradiction      -- Alternatively, rename _ => h; revert h; exact Fin2.elim0
+      · contradiction
       · infer_instance
 
   instance : MvFunctor Base := by infer_instance
-
-  -- CC: This is having trouble type-checking?
-  --instance : MvQPF (fun (i : Fin2 1) =>
-  --    Matrix.vecCons (Prj 1) ![] (Fin.rev (PFin2.toFin (PFin2.ofFin2 i)))) := by
-
-  --  done\
-
-  #check Comp
 
   instance (i : Fin2 2) : MvQPF (G i) := by
     match i with
     | .fz => simp [G]; infer_instance
     | .fs s =>
-      simp [G]
       match s with
-      | .fz =>
-        simp
-        infer_instance
-        done
-      | .fs s' => revert s'; exact Fin2.elim0
+      | .fz => simp [G]; infer_instance
+      | .fs s' => contradiction
 
   instance : MvQPF Base := by infer_instance
 
   abbrev QpfTree' := Fix Base
   abbrev QpfTree  := TypeFun.curried QpfTree'
-
-  #check @Prj 2 1
-  #check Shape.F
-  #check Shape.P.Obj
-  #check Vec.append1
-
-  #check ![@Prj 2 0]
-  #check !![@Prj 2 0]
-  #check TypeFun.curried
 
   instance : MvFunctor QpfList' := by infer_instance
 
@@ -144,13 +138,9 @@ namespace QpfTree
             fun i _ => match i with
             | 0 =>  by
               convert children
-              simp
-              unfold G
-              simp [Comp, G', Prj]
+              simp [G, Comp, Prj]
               congr
-              simp
               apply funext
-              simp
               simp [QpfTree, QpfTree', TypeVec.append1]
               congr
               simp
@@ -158,12 +148,6 @@ namespace QpfTree
     ⟩
 
   -- rec for rose trees
-
-  #check Subtype
-  #check Prod
-
-  def helper (a : Int) : Int := a
-  def int' := { z : Int // z % 2 = 0 }
 
 /-
   def rec {α} {motive : QpfTree α → Sort _}
@@ -182,17 +166,37 @@ namespace QpfTree
   done -/
 
   def rec {α} {motive_1 : QpfTree α → Sort _} {motive_2 : QpfList (QpfTree α) → Sort _} :
-  ((root : α) → (children : QpfList (QpfTree α)) → (motive_2 children) → (motive_1 (node root children)))
-  → (motive_2 (QpfList.nil))
-  → ((head : QpfTree α) → (tail : QpfList (QpfTree α)) → motive_1 head → motive_2 tail → motive_2 (QpfList.cons head tail))
-  → (t : QpfTree α) → (motive_1 t) := by
+      ((root : α) → (children : QpfList (QpfTree α))
+        → (motive_2 children) → (motive_1 (node root children)))
+      → (motive_2 (QpfList.nil))
+      → ((head : QpfTree α) → (tail : QpfList (QpfTree α))
+        → motive_1 head → motive_2 tail → motive_2 (QpfList.cons head tail))
+      → (t : QpfTree α) → (motive_1 t) := by
     intro h_rec h₁ h₂
     apply Fix.ind
     rintro ⟨a, f⟩ h_rec_motive
     cases a
     rw [MvQPF.liftP_iff] at h_rec_motive
-    rcases h_rec_motive with ⟨a, _, h_abs, d⟩
+    rcases h_rec_motive with ⟨a, b, h_abs, d⟩
     cases a
+    injection h_abs
+    rename _ => h_f --; subst h
+    have := f .fz
+    simp [Shape.ChildT, Shape.HeadT.node] at this
+    have := this .fz
+    simp [G, QpfList, Base] at this
+
+    convert h_rec (f (.fs .fz) .fz) ?_ ?_
+    simp [node]
+    congr
+    ext
+    stop
+    split -- CC: dunno why this fails here, but succeeds in list.
+    ext
+    simp
+    split
+    ·
+      done
     -- CC: Why doesn't (f .fz .fz) work here? Unfold defs/abbrevs?
     convert h_rec (f (.fs .fz) .fz) ?_ ?_ --(d .fz ?_)
     apply QpfList.rec h₁ h₂ _

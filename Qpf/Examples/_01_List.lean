@@ -124,15 +124,6 @@ namespace QpfList
   example : QpfList' Nat :=
     cons' 1 $ cons' 2 $ cons' 3 $ nil'
 
-#check List.rec
-  /-
-    Pattern matching does not work like one would expect, but we'll ignore it for now
-
-  def mul2 : QpfList Nat → QpfList Nat
-    | nil        => nil
-    | cons hd tl => cons (2*hd) (mul2 tl)
-  -/
-
   def rec {α : Type _} {motive : QpfList α → Sort _} :
       (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
       → (t : QpfList α) → motive t := by
@@ -172,75 +163,14 @@ namespace QpfList
          we can let Lean split on the branches with `split`. Thus, we find
          that the two are equal, and can close each branch with `rfl`. -/
       split <;> rfl
-      done
-    done
-
-
 
     -- recOn version
     -- only change required was introduction of extra variable
     def recOn {α : Type _} {motive : QpfList α → Sort _} :
       (t : QpfList α) → (motive nil) → ((hd : α) → (tl : QpfList α) → motive tl → motive (cons hd tl))
-      → motive t := by
-    intro t h_nil h_rec
-    apply Fix.ind
-    -- CC: Think about why we don't need `t` here: probably to do with types vs. concrete items of types
-    rintro ⟨a, f⟩ h_rec_motive
-    cases a
-    · convert h_nil
-    · /- `h_rec_motive` is a lifted predicate over the multi-variate functor
-         that gives back the motive on list under `f`. However, to access the
-         motive on our particular `f`, we go through `MvQPF.liftP_iff`, which
-         gives us access to the abstracted (i.e., quotiented) version of our
-         data type. However, since `QpfLists` aren't behaviorally quotients
-         (meaning that order is preserved), the lifting operation that gives
-         us the motive on the abstracted version also holds on the concrete
-         version, since they're the same thing. -/
-      rw [MvQPF.liftP_iff] at h_rec_motive
-      rcases h_rec_motive with ⟨a, _, h_abs, d⟩
-      /- Interestingly, typing `injection h_abs` causes one of the generated
-         hypotheses to be `Heq f b` instead of `f = b`, likely because `a` is
-         involved in other terms, and so Lean doesn't want to commit to an
-         equality just yet.
-         So we do the slightly more roundabout thing and case on `a`. -/
-      cases a <;> injection h_abs <;> try contradiction
-      rename _ => h; subst h
-      /- Because `cons` is marked as an `abbrev`, Lean can peer under the
-         definition and, via `convert`, insert new goals for the types that
-         don't agree. In this case, we have a anonymous wrapper for `f`. -/
-      convert h_rec (f (.fs .fz) ()) (f .fz ()) (d .fz ())
-      /- It turns out that Lean is very smart with "simple" types. Here, we
-         want to show that `f` and an anonymous function are equal under two
-         arguments. But because we can peek under the anonymous function,
-         we can let Lean split on the branches with `split`. Thus, we find
-         that the two are equal, and can close each branch with `rfl`. -/
-      split <;> rfl
-      done
-    done
-
-
-
-#check PSum
-#check PSigma
-#check PProd
-
-#check List.rec
-#check TypeVec.id
-#check MvFunctor.map
-#check TypeVec.comp
-#check PFin2
-#check List.rec
--- #check List.recOn
-#check List.brecOn
-#check List.below
-#print List.below
-#check TypeVec.comp
-#print PProd
-
-#print Fix.mk
-
-def my_fn (l : List α) : α → List α
-  | a => my_fn (List.cons a l) a
+      → motive t :=
+      fun t h_nil h_rec =>
+        rec h_nil h_rec t
 
   /- CC: Because `QpfLists` are W-types, meaning that concrete `QpfLists` are
          types, and not instances of a type, to say that a list `l` is either
@@ -290,12 +220,27 @@ def my_fn (l : List α) : α → List α
       ext
       split <;> rfl
 
+-- CC: A quick tactic that acts like `cases` for QpfLists. Way to generalize?
+scoped macro (name := qcases) "qcases" obj:ident : tactic => `(tactic|
+  ( cases (cases_eq $obj)
+    repeat' ( rename _ => h ; cases h ) ))
+
+  -- CC: To repeat a series of tactics and succeed on the first one, use `first` and pipes `|`.
+  --     repeat first | rw [← to_nat_inj] | rw [← lt_to_nat] | rw [← le_to_nat]
+
+  theorem cases_wrong : ∀ (l : QpfList α), l = nil := by
+    intro l
+    qcases l
+    · rfl
+    · sorry -- CC: Impossible
+      done
+
 #print Nat.below
 
-@[reducible] protected def QpfList.below : {α : Type _} →
+/-@[reducible] protected def QpfList.below : {α : Type _} →
   {motive : QpfList α → Sort _} → QpfList α → Sort _ :=
 fun {α} {motive} t =>
-  QpfList.rec PUnit (fun head tail tail_ih => PProd (PProd (motive tail) tail_ih) PUnit) t
+  QpfList.rec PUnit (fun head tail tail_ih => PProd (PProd (motive tail) tail_ih) PUnit) t -/
 
 end QpfList
 
