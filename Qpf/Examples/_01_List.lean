@@ -83,6 +83,8 @@ namespace QpfList
     this is automatically inferred
   -/
   example : MvQPF F := inferInstance
+  -- AS: Lean is able to infer the below instance
+  -- example : MvQPF P := inferInstance
 
   /- We define `QpfList'` as the fixpoint of `P` in the last argument -/
   abbrev QpfList' : TypeFun 1 := Fix QpfList.F
@@ -234,6 +236,14 @@ scoped macro (name := qcases) "qcases" obj:ident : tactic => `(tactic|
     · rfl
     · sorry -- CC: Impossible
       done
+
+-- AS: seeing how tactic works
+
+example (α : Type _) (t : QpfList α) : t = t :=
+  by
+  qcases t
+  rfl
+  rfl
 
 #print Nat.below
 

@@ -16,7 +16,11 @@ inductive NonRec (α : Type _)
        is a proof that the motive holds on the constructed `NonRec` object
        with those constructor arguments.  -/
 #check NonRec.rec
+#check true
 
+-- "all that's needed
+--        is a proof that the motive holds on the constructed `NonRec` object
+--        with those constructor arguments."
 
 inductive Rec₁ (α : Type _) : Type _
   | node : α → Rec₁ α → Rec₁ α → Rec₁ α
@@ -42,6 +46,9 @@ inductive Rec₂ (α : Type _) : Type _
        constraint that the List motive does, in fact, "implement" induction.) -/
 #check Rec₂.rec
 
+-- AS: AH, so the argument type pertinent to motive_2 ensures that the
+-- motive on lists implements induction on lists
+
 end Testing
 
 
@@ -61,9 +68,18 @@ namespace QpfTree
 
     abbrev P := MvPFunctor.mk HeadT ChildT
 
-    abbrev F := TypeFun.curried P.Obj
+    -- abbrev F := TypeFun.curried P.Obj
+    -- AS: trying to mirror QpfList case by removal of TypeFun.curried
+    abbrev F := P.Obj
 
     instance : MvFunctor P.Obj := by infer_instance
+
+    instance : MvQPF F := by infer_instance
+
+    -- AS: the first difference seen between the 2 proofs was the non-recognition
+    -- of the multivariate functor as a QPF in the rose tree case, so that has
+    -- been experimentally added here
+    instance : MvQPF P := by infer_instance
 
   end Shape
 
@@ -92,18 +108,24 @@ namespace QpfTree
   -/
 
   -- CC: There's probably a more compact way of writing this using `TypeVec.Arrow` or `Prj.map`
+
+  #check TypeVec.Arrow
+  #check Prj.map
+  #print Prj
+
   abbrev G (i : Fin2 2) : TypeVec 2 → Type :=
     match i with
     | 0 => Comp QpfList' (fun _ => Prj 0)
     | 1 => Prj 1
 
-  abbrev Base : TypeFun 2
+  -- AS: alternative, compact definition of G
+
+
+  abbrev Base : TypeVec 2 → Type
     := Comp Shape.P.Obj G
 
-  abbrev F := Shape.P.Obj
-
-  instance : MvFunctor Shape.P.Obj := by infer_instance
-  instance : MvQPF Shape.P.Obj := by infer_instance
+  instance : MvFunctor Shape.F := by infer_instance
+  instance : MvQPF Shape.F := by infer_instance
 
   instance (i : Fin2 2) : MvFunctor (G i) := by
     match i with
@@ -130,6 +152,9 @@ namespace QpfTree
   abbrev QpfTree  := TypeFun.curried QpfTree'
 
   instance : MvFunctor QpfList' := by infer_instance
+
+  -- AS: added to match QpfList case
+  instance : MvQPF QpfTree' := by infer_instance
 
   -- node constructor
 
@@ -165,6 +190,13 @@ namespace QpfTree
   motive_1 t
   done -/
 
+  #check TypeVec.comp
+  #check MvQPF.abs
+  #print MvQPF.abs
+  #check MvPFunctor.B
+
+  #check P
+
   def rec {α} {motive_1 : QpfTree α → Sort _} {motive_2 : QpfList (QpfTree α) → Sort _} :
       ((root : α) → (children : QpfList (QpfTree α))
         → (motive_2 children) → (motive_1 (node root children)))
@@ -178,19 +210,29 @@ namespace QpfTree
     cases a
     rw [MvQPF.liftP_iff] at h_rec_motive
     rcases h_rec_motive with ⟨a, b, h_abs, d⟩
-    cases a
+    -- difference in behaviour from QpfLists is seen from this point
+    -- why is a not an MvQPF here but is one in QpfList?
+    -- AS: ensuring that Lean knows P is an MvQPF instance has not changed this
+    -- cases' a with headT dependentT
+    -- cases headT
+    -- simp at dependentT
+    -- cases (dependentT (.fz) PFin2.fz)
     injection h_abs
-    rename _ => h_f --; subst h
+    rename _ => h_f
+    -- subst h_f
     have := f .fz
     simp [Shape.ChildT, Shape.HeadT.node] at this
     have := this .fz
     simp [G, QpfList, Base] at this
 
     convert h_rec (f (.fs .fz) .fz) ?_ ?_
+    -- the line above causes the last argument to not have access to the
+    -- element of QpfList (QpfTree α), since the latter itself is ?
     simp [node]
     congr
     ext
-    stop
+    --
+    -- stop
     split -- CC: dunno why this fails here, but succeeds in list.
     ext
     simp
